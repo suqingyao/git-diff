@@ -18,12 +18,24 @@ const spinner = ora({
 });
 
 export async function compareBranchDiff({ baseBranch, compareBranch, repoPath }: CompareBranchDiffProps) {
+  // 在原有错误处理逻辑中增加具体检查项
   if (!fsExtra.existsSync(repoPath)) {
-    console.error(`Error: The directory ${repoPath} does not exist.`);
-    return;
+    throw new Error(`目标路径不存在: ${repoPath}\n请检查路径是否正确或是否有读取权限`);
+  }
+
+  if (!fsExtra.existsSync(path.join(repoPath, '.git'))) {
+    throw new Error(`目标路径不是Git仓库: ${repoPath}\n请确认目录包含.git文件夹`);
   }
 
   const gitRepo = simpleGit(repoPath);
+  // 执行git diff前验证分支存在性
+  const branchCheck = await gitRepo.branch();
+  if (!branchCheck.all.includes(baseBranch)) {
+    throw new Error(`源分支不存在: ${baseBranch}\n可用分支: ${branchCheck.all.join(', ')}`);
+  }
+  if (!branchCheck.all.includes(compareBranch)) {
+    throw new Error(`目标分支不存在: ${compareBranch}\n可用分支: ${branchCheck.all.join(', ')}`);
+  }
 
   const outputDir = repoPath.match(/[^/]+(?=\/?$)/)![0];
 
